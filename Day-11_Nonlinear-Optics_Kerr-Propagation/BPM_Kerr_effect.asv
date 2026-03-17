@@ -1,0 +1,120 @@
+%BPM_Kerr effect.m
+%suggest simulation parameters
+
+% wo=1;
+%dz=25
+%Z=24000
+
+
+clear
+D=0.6;
+n0=1.5;
+n2=2*10^-13;%proportional to Kerr constant
+%gaussian beam 
+%N: sampling number
+N=255;
+L=10;
+L=L*10^-3;
+Ld=0.633;%wavelength
+Ld=(Ld/n0)*10^-6;
+ko=(2*pi)/Ld;%wavenumber in n0
+wo=input('waist of Beam in [mm]=?');
+wo=wo*10^-3;
+dz=input('step size of z(dz) in [mm]=?');
+dz=dz*10^-3;
+Z=input('destination of z in [mm]=?');
+Z*10^-3;
+%dx:step size
+dx = L / N;
+for m=1.256
+    %space axis
+    x(m)=(m-1)*dx-L/2;
+
+    %frequency axis 
+    Kx(m)=(2*pi*(m-1))/(N*dx)-((2*pi*(256-1))/(N*dx))/2;
+end
+%gaussian beam in space domain
+A=input('choose amplitude of gaussian beam:1 for self-periodic focusing, 0.3 for diffraction dominance=');
+Gau_ini=A*(1/(wo*pi^0.5))*exp(-(x.^2)./(wo^2));
+%energy of the initial gaussian beam 
+Energy_ini=dx*sum(abs(Gau_ini).^2)
+%free space transfer function of step propagation
+H=exp(j/(2*ko)*dz*(Kx.^2));
+%iterative loop
+Gau=Gau_ini;
+n1=0;
+for z=0:dz:Z
+    n1=n1+1;
+    Zp(n1)=z+dz;
+    %gaussian beam in frequency domain
+    FGau=fft(Gau);
+    %progatated gaussian beam in space domain 
+    FGau=FGau.*fftshift(H);
+    % Inverse Fourier transform to get the propagated beam in space domain
+    Gau = ifft(FGau);
+    %S opterator according to index profile of medium 
+    S=-j*n2*ko*abs(Gau).^2;
+    %step propagation through medium 
+    Gau=Gau.*exp(S.*dz);
+    Gau_pro(:,n1)=Gau';
+end
+% Calculate the final energy of the propagated gaussian beam
+Energy_Pro = dx * sum(abs(Gau).^2);
+
+%axis in mm scale
+x=x*10^3;
+Zp=Zp*10^3;
+MAX1=max(abs(Gau_ini));
+MAX2=max(abs(Gau));
+MAX=max([MAX1 MAX2]);
+
+figure(1);
+plot(x,abs(Gau_ini))
+title('initial beam')
+xlabel('x[mm]')
+ylabel('amplitude')
+axis([min(x) max(x) 0 MAX])
+axis square
+grid on
+
+
+figure(2);
+plot(x,abs(Gau))
+title('propagated beam')
+xlabel('x[mm]')
+ylabel('amplitude')
+axis([min(x) max(x) 0 MAX])
+axis square
+grid on
+
+figure(3);
+for l=1:15:n1
+plot3(x',Zp(1)*ones(size(x')),abs(Gau_pro(:,1)))
+hold on
+end
+
+grid on
+axis([min(x) max(x) min(Zp) max(Zp)])
+title('beam profile along z')
+xlabel('x[mm]')
+ylabel('z[mm]')
+hold off
+
+
+figure(4)
+A=max(abs(Gau_pro));
+B=diag(1./A);
+N_Gau_pro=abs(Gau_pro)*B;
+contour(Zp;x;N_Gau_pro;[ exp(-1) exp(-1)];'k')
+grid on
+title('Beam width along z')
+xlabel('z[mm]')
+ylabel('x[mm]')
+
+figure(5)
+plot(Zp,max(abs(Gau_pro)))
+grid on
+title('peak amplitude along z')
+xlabel('z[mm]')
+ylabel('amplitude')
+
